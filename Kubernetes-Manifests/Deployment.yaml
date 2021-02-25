@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvms-websocket-deployment
+spec:
+  selector:
+    matchLabels:
+      app: pvms-websocket
+  template:
+    metadata:
+      labels:
+        app: pvms-websocket
+    spec:
+      containers:
+      - name: pvms-websocket
+        image: asia.gcr.io/synergy-249605/pvms-websocket:latest
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "1Gi"
+        livenessProbe:
+              httpGet:
+                path: /health_check
+                port: 5000
+              initialDelaySeconds: 10
+              periodSeconds: 5            
+        ports:
+        - containerPort: 5000

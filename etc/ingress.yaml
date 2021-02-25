@@ -1,0 +1,28 @@
+
+# openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl.key -out ssl.crt -subj "/CN=pvms-websocket.sngy.io/O=pvms-websocket.sngy.io"
+
+# kubectl create secret tls pvms-websocket-tls --key ssl.key --cert ssl.crt
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: pvms-websocket-ing
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"    
+    cert-manager.io/cluster-issuer: ssl-key-issuer
+spec:
+  tls:
+  - hosts:
+      - pvms-websocket.sngy.io
+    secretName: pvms-websocket-tls
+  rules:
+    - host: pvms-websocket.sngy.io
+      http:        
+        paths:        
+          - path: /
+            backend:
+              serviceName: pvms-websocket-service
+              servicePort: 80
