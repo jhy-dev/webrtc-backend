@@ -8,7 +8,8 @@ import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import { RedisAdapter } from 'socket.io-redis';
-import { PeerConnectionService } from './Service/PeerConnectionService';
+import { PeerConnectionService } from './lib/PeerConnectionService';
+import { Message, SignalFlow } from './lib/ServerData';
 
 
 //====================================================health_check
@@ -24,12 +25,12 @@ server.listen(PORT, () => {
 //====================================================init_socket_io
 const io = new Server(server, {
     transports: ["websocket"],
-    cors: {
-        origin: "https://ssl.sngy.io",
-        methods: ["GET", "POST"],
-        allowedHeaders: ["X-API-Key"],
-        credentials: true
-    }
+    // cors: {
+    // origin: "https://webrtc.front",
+    // allowedHeaders: ["X-API-Key"],
+    // methods: ["GET", "POST"],
+    // credentials: true
+    // }
 });
 const pubClient = new RedisClient({
     host: '34.64.121.181', port: 6379, auth_pass: "sngy1234"
@@ -38,37 +39,25 @@ const subClient = pubClient.duplicate();
 io.adapter(createAdapter({ pubClient, subClient }));
 //====================================================init_socket_io
 
-export const MEETING_ROOM = "MEETING_ROOM";
-
-export enum SignalFlow {
-    MYID = "MYID",
-    ROOM = "ROOM",
-    CANDIDATE = "CANDIDATE",
-    OFFER = "OFFER",
-    ANSWER = "ANSWER",
-    LEAVE = "LEAVE"
-}
-
-export interface Message {
-    room?: string,
-    target?: string,
-    source?: string,
-    candidate?: RTCIceCandidate,
-    sdp?: RTCSessionDescriptionInit
-}
-
 class MainServer {
     constructor() {
-        io.on('connection', async (socket: Socket) => {            
+        io.on('connection', async (socket: Socket) => {
             console.log("connected")
             // console.log(socket.handshake.auth)
             const adapter: RedisAdapter = io.of('/').adapter as unknown as RedisAdapter,
-                peer = new PeerConnectionService(adapter, socket, io);                
+                peer = new PeerConnectionService(adapter, socket, io, pubClient);
+            socket.on(SignalFlow.NAME, (message: Message) => peer.enter_name(message));
             socket.on(SignalFlow.ROOM, (message: Message) => peer.join_room(message));
             socket.on(SignalFlow.OFFER, (message: Message) => peer.send_offer(message));
             socket.on(SignalFlow.ANSWER, (message: Message) => peer.send_answer(message));
             socket.on(SignalFlow.CANDIDATE, (message: Message) => peer.send_ice_candidate(message));
             socket.on('disconnect', async () => {
+                pubClient.get(socket.id, (name_err, name) => {
+                    if (name !== null) {
+                        pubClient.del(name);
+                        pubClient.del(socket.id);
+                    }
+                });
                 console.log(`${socket.id} disconnected`);
                 await peer.broadcastParticipants();
             });
