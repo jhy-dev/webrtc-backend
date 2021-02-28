@@ -33,7 +33,7 @@ const io = new Server(server, {
     // }
 });
 const pubClient = new RedisClient({
-    host: '34.64.121.181', port: 6379, auth_pass: "sngy1234"
+    host: '127.0.0.1', port: 6379, auth_pass: "test123"
 });
 const subClient = pubClient.duplicate();
 io.adapter(createAdapter({ pubClient, subClient }));
